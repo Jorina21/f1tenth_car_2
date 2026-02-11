@@ -1,0 +1,31 @@
+#Ros2  build artifacts
+build/
+install/
+log/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Colcon
+.colcon/
+
+# VS Code
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Secrets / local configs
+.env
+*.key
+*.pem
+
+# ROS runtime
+.ros/
+
+# Swap files
+*.swp
+

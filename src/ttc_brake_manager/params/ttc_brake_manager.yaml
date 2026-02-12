@@ -1,0 +1,36 @@
+ttc_brake_manager:
+  ros__parameters:
+    joy_topic: /joy
+    scan_topic: /scan
+    cmd_topic: /ackermann_cmd
+    brake_topic: /commands/motor/brake
+    drive_enable_topic: /drive_enable
+    safety_drive_topic: /safety/drive
+
+    stop_on_soft_brake: true
+    stop_on_brake_hold: true
+
+    enable_brake_hold: true
+    stop_speed_threshold: 0.10
+    brake_hold: 0.25
+
+    # Verify indices with: ros2 topic echo /joy --once
+    l1_button_index: 4
+    l2_axis_index: 3 #L2 = 3
+    l2_axis_mode: auto     # auto | 0_to_1 | 1_to_minus1
+    soft_brake_deadzone: 0.08
+
+    # Brake tuning
+    hard_brake: 1.00 #0.85
+    soft_brake_max: 0.30
+
+    # TTC tuning
+    ttc_enabled: false
+    ttc_threshold: 0.55
+    ttc_release_threshold: 0.80
+    ttc_min_speed: 0.40
+    front_angle_deg: 30.0
+    ttc_min_range: 0.20
+    emergency_hold_time: 0.35
+
+    publish_rate: 20.0

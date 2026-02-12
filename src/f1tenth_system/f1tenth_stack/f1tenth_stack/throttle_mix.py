@@ -19,7 +19,7 @@ class ThrottleMix(Node):
         # Gearbox info
         self.current_gear = 0   # Gear 1 index (0 = Gear 1)
 
-        self.gear_max_speeds = [1.5, 3.0, 6.0, 10]   # 4 gears
+        self.gear_max_speeds = [1.5, 3.0, 6.0, 9.0]   # 4 gears
         self.gear_accel_rates = [0.06, 0.10, 0.15, 0.20]
 
         # For throttle smoothing

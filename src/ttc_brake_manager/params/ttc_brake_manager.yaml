@@ -12,7 +12,7 @@ ttc_brake_manager:
 
     enable_brake_hold: true
     stop_speed_threshold: 0.10
-    brake_hold: 0.25
+    brake_hold: 5.0
 
     # Verify indices with: ros2 topic echo /joy --once
     l1_button_index: 4
@@ -21,16 +21,16 @@ ttc_brake_manager:
     soft_brake_deadzone: 0.08
 
     # Brake tuning
-    hard_brake: 1.00 #0.85
-    soft_brake_max: 0.30
+    hard_brake: 45.0 #45 A
+    soft_brake_max: 30.0 
 
     # TTC tuning
-    ttc_enabled: false
-    ttc_threshold: 0.55
-    ttc_release_threshold: 0.80
-    ttc_min_speed: 0.40
-    front_angle_deg: 30.0
-    ttc_min_range: 0.20
+    ttc_enabled: true
+    ttc_threshold: 0.55 #collison in >0.55 sec (race =0.30-0.5), indoor = 0.6 -0.7
+    ttc_release_threshold: 0.80 # hysteresis (relase brake when ttc > .80)
+    ttc_min_speed: 0.40 #ttc is ignored below 0.4 m/s
+    front_angle_deg: 30.0 #front lidar beams used
+    ttc_min_range: 0.20 #ignored very close readings from bumber
     emergency_hold_time: 0.35
 
-    publish_rate: 20.0
+    publish_rate: 50.0

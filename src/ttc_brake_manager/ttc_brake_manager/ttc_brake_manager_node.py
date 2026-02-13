@@ -41,7 +41,7 @@ class TTCBrakeManager(Node):
         self.declare_parameter("brake_topic", "/commands/motor/brake")
         self.declare_parameter("drive_enable_topic", "/drive_enable")
 
-        # New: Safety stop injection into mux input
+        # Safety stop injection into mux input
         self.declare_parameter("safety_drive_topic", "/safety/drive")
         self.declare_parameter("stop_on_soft_brake", True)         # if True, L2 braking also injects STOP into mux
         self.declare_parameter("stop_on_brake_hold", True)         # if True, brake-hold also injects STOP into mux
@@ -73,6 +73,11 @@ class TTCBrakeManager(Node):
         # Publishing / behavior
         self.declare_parameter("publish_rate", 50.0)
         self.declare_parameter("brake_publish_epsilon", 1e-3)      # below this, treat as "no brake"
+
+        # Debug
+        self.declare_parameter("debug_brake_mode", True)           # prints mode changes
+        self.declare_parameter("debug_ttc", False)                 # prints TTC occasionally
+        self.declare_parameter("debug_ttc_rate_sec", 0.5)          # throttle TTC prints
 
         # Load params
         self.joy_topic = str(self.get_parameter("joy_topic").value)
@@ -108,6 +113,11 @@ class TTCBrakeManager(Node):
         self.publish_rate = float(self.get_parameter("publish_rate").value)
         self.brake_publish_epsilon = float(self.get_parameter("brake_publish_epsilon").value)
 
+        self.debug_brake_mode = bool(self.get_parameter("debug_brake_mode").value)
+        self.debug_ttc = bool(self.get_parameter("debug_ttc").value)
+        self.debug_ttc_rate_sec = float(self.get_parameter("debug_ttc_rate_sec").value)
+        self._last_ttc_log_ns = 0
+
         # State
         self.deadman_held = False
         self.l2_norm = 0.0
@@ -120,11 +130,12 @@ class TTCBrakeManager(Node):
         # Track brake publishing state
         self.braking_active = False  # whether we are actively publishing brake commands
 
+        # Debug: track last brake mode for "print on change"
+        self.last_brake_mode: str | None = None
+
         # Publishers
         self.brake_pub = self.create_publisher(Float64, self.brake_topic, 10)
         self.enable_pub = self.create_publisher(Bool, self.drive_enable_topic, 10)
-
-        # New: publish STOP ackermann command into mux input
         self.safety_drive_pub = self.create_publisher(AckermannDriveStamped, self.safety_drive_topic, 10)
 
         # Subscribers
@@ -237,6 +248,19 @@ class TTCBrakeManager(Node):
         msg.drive.jerk = 0.0
         self.safety_drive_pub.publish(msg)
 
+    def _log_mode_if_changed(self, mode: str, brake: float, inject_stop: bool, min_ttc: float | None):
+        if not self.debug_brake_mode:
+            return
+        if mode == self.last_brake_mode:
+            return
+
+        ttc_str = "None" if min_ttc is None else f"{min_ttc:.2f}s"
+        self.get_logger().info(
+            f"Brake Mode: {mode} | brake={brake:.3f} | inject_stop={inject_stop} | "
+            f"deadman={self.deadman_held} | cmd_speed={self.cmd_speed:.2f} | min_ttc={ttc_str}"
+        )
+        self.last_brake_mode = mode
+
     # ---------- Main loop ----------
     def on_timer(self):
         now_ns = self.get_clock().now().nanoseconds
@@ -252,33 +276,52 @@ class TTCBrakeManager(Node):
             self.emergency_active = True
             self.emergency_until_ns = now_ns + int(self.emergency_hold_time * 1e9)
 
+        # Optional TTC debug print (throttled)
+        if self.debug_ttc and (min_ttc is not None):
+            interval_ns = int(max(self.debug_ttc_rate_sec, 0.05) * 1e9)
+            if (now_ns - self._last_ttc_log_ns) >= interval_ns:
+                self.get_logger().info(f"Min TTC: {min_ttc:.2f}s")
+                self._last_ttc_log_ns = now_ns
+
         # drive_enable (optional for other nodes)
         drive_enable = self.deadman_held and (not self.emergency_active)
         self.enable_pub.publish(Bool(data=drive_enable))
 
         # Determine braking intent
         soft_brake = self.l2_norm * self.soft_brake_max
-        want_hard = self.emergency_active or (not self.deadman_held)
+        want_hard_deadman = (not self.deadman_held)
+        want_hard_ttc = self.emergency_active
         want_soft = soft_brake > self.brake_publish_epsilon
 
         want_hold = False
-        if self.enable_brake_hold and (not want_hard) and (not want_soft):
+        if self.enable_brake_hold and (not want_hard_ttc) and (not want_hard_deadman) and (not want_soft):
             if abs(self.cmd_speed) <= self.stop_speed_threshold:
                 want_hold = True
 
-        # Decide final brake value and whether to inject safety stop
-        if want_hard:
+        # Decide final brake value and whether to inject safety stop + mode label
+        if want_hard_ttc:
             brake = self.hard_brake
             inject_stop = True
+            mode = "HARD (TTC)"
+        elif want_hard_deadman:
+            brake = self.hard_brake
+            inject_stop = True
+            mode = "HARD (DEADMAN)"
         elif want_soft:
             brake = soft_brake
             inject_stop = self.stop_on_soft_brake
+            mode = "SOFT"
         elif want_hold:
             brake = self.brake_hold
             inject_stop = self.stop_on_brake_hold
+            mode = "HOLD"
         else:
             brake = 0.0
             inject_stop = False
+            mode = "NONE"
+
+        # Log mode transitions
+        self._log_mode_if_changed(mode, brake, inject_stop, min_ttc)
 
         # Inject STOP into mux if braking/stop mode is active
         if inject_stop:
@@ -290,7 +333,6 @@ class TTCBrakeManager(Node):
             self.brake_pub.publish(Float64(data=float(brake)))
         else:
             if self.braking_active:
-                # release once
                 self.brake_pub.publish(Float64(data=0.0))
                 self.braking_active = False
             # else: silent

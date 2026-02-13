@@ -8,11 +8,11 @@ ttc_brake_manager:
     safety_drive_topic: /safety/drive
 
     stop_on_soft_brake: true
-    stop_on_brake_hold: true
+    stop_on_brake_hold: false #true applies break when no gas is given
 
-    enable_brake_hold: true
+    enable_brake_hold: false #brake applied without gas 
     stop_speed_threshold: 0.10
-    brake_hold: 5.0
+    brake_hold: 5.0  #invoked is brakehold enabed 
 
     # Verify indices with: ros2 topic echo /joy --once
     l1_button_index: 4
@@ -32,5 +32,9 @@ ttc_brake_manager:
     front_angle_deg: 30.0 #front lidar beams used
     ttc_min_range: 0.20 #ignored very close readings from bumber
     emergency_hold_time: 0.35
+    
+    debug_brake_mode: true
+    debug_ttc: true
+    debug_ttc_rate_sec: 0.5
 
     publish_rate: 50.0

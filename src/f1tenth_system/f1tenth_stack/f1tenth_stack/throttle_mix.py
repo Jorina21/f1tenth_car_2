@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
@@ -6,170 +7,211 @@ from std_msgs.msg import Int32
 
 
 class ThrottleMix(Node):
+
     def __init__(self):
         super().__init__('throttle_mix')
 
+        # =============================
+        #           PARAMETERS
+        # =============================
+
+        # Topics
+        self.declare_parameter('joy_topic', '/joy')
+        self.declare_parameter('cmd_topic', '/ackermann_cmd')
+        self.declare_parameter('gear_topic', '/current_gear')
+
+        # Steering
+        self.declare_parameter('max_steer_rad', 0.34)
+
+        # Gear limits (m/s)
+        # Gear 4 default = 6.32 m/s (safe for 23250 ERPM @ 3680 gain)
+        self.declare_parameter('gear_max_speeds_mps', [1.5, 3.0, 6.0, 6.32])
+        self.declare_parameter('gear_accel_rates', [0.06, 0.10, 0.15, 0.20])
+
+        # Reverse & braking
+        self.declare_parameter('max_reverse_mps', 1.0)
+        self.declare_parameter('brake_strength', 12.0)
+
+        # =============================
+        #         LOAD PARAMETERS
+        # =============================
+
+        self.joy_topic = self.get_parameter('joy_topic').value
+        self.cmd_topic = self.get_parameter('cmd_topic').value
+        self.gear_topic = self.get_parameter('gear_topic').value
+
+        self.max_steer = float(self.get_parameter('max_steer_rad').value)
+
+        self.gear_max_speeds = list(self.get_parameter('gear_max_speeds_mps').value)
+        self.gear_accel_rates = list(self.get_parameter('gear_accel_rates').value)
+
+        self.max_reverse = float(self.get_parameter('max_reverse_mps').value)
+        self.brake_strength = float(self.get_parameter('brake_strength').value)
+
+        if len(self.gear_max_speeds) != len(self.gear_accel_rates):
+            raise RuntimeError(
+                "gear_max_speeds_mps and gear_accel_rates must be same length"
+            )
+
+        self.num_gears = len(self.gear_max_speeds)
+
+        # =============================
+        #            STATE
+        # =============================
+
         self.drive_mode = "DRIVE"
 
-        # Button edges
-        self.prev_shift = 0       # R1
-        self.prev_gear_up = 0     # Triangle
-        self.prev_gear_down = 0   # X
+        self.prev_shift = 0
+        self.prev_gear_up = 0
+        self.prev_gear_down = 0
 
-        # Gearbox info
-        self.current_gear = 0   # Gear 1 index (0 = Gear 1)
-
-        self.gear_max_speeds = [1.5, 3.0, 6.0, 9.0]   # 4 gears
-        self.gear_accel_rates = [0.06, 0.10, 0.15, 0.20]
-
-        # For throttle smoothing
+        self.current_gear = 0   # 0-based index (Gear 1 = 0)
         self.prev_speed = 0.0
 
-        # ROS subscriptions
+        # =============================
+        #           ROS I/O
+        # =============================
+
         self.sub_joy = self.create_subscription(
-            Joy, '/joy', self.joy_cb, 10)
+            Joy, self.joy_topic, self.joy_cb, 10)
 
-        # Publisher
         self.pub = self.create_publisher(
-            AckermannDriveStamped,
-            '/ackermann_cmd',
-            10)
+            AckermannDriveStamped, self.cmd_topic, 10)
 
-        # Gear indicator publisher
         self.pub_gear = self.create_publisher(
-            Int32,
-            '/current_gear',
-            10
+            Int32, self.gear_topic, 10)
+
+        self.get_logger().info(
+            "ThrottleMix loaded.\n"
+            f"  gear_max_speeds_mps: {self.gear_max_speeds}\n"
+            f"  gear_accel_rates: {self.gear_accel_rates}"
         )
 
-        self.get_logger().info("ThrottleMix: Manual 4-Gear Transmission Loaded.")
+    # ==========================================================
+    #                       JOY CALLBACK
+    # ==========================================================
 
-    def joy_cb(self, msg):
+    def joy_cb(self, msg: Joy):
 
-        # ===== STEERING (LEFT STICK) =====
-        steer = msg.axes[0] * 0.34
+        steer = msg.axes[0] * self.max_steer
 
-        # Buttons
-        deadman = msg.buttons[4] == 1      # L1
-        handbrake = msg.buttons[6] == 1    # L2
+        deadman = (msg.buttons[4] == 1)      # L1
+        handbrake = (msg.buttons[6] == 1)
 
-        # ===== Trigger normalization =====
         raw_gas = msg.axes[4]    # R2
-        raw_brake = msg.axes[3]  # L2 #
+        raw_brake = msg.axes[3]  # L2
 
         gas = (1.0 - raw_gas) / 2.0
         brake = (1.0 - raw_brake) / 2.0
 
-        if gas < 0.05: gas = 0.0
-        if brake < 0.05: brake = 0.0
+        if gas < 0.05:
+            gas = 0.0
+        if brake < 0.05:
+            brake = 0.0
 
-        # ============================
-        #    DRIVE / REVERSE TOGGLE
-        # ============================
-        current_shift = msg.buttons[5]  # R1
+        # =============================
+        #       DRIVE / REVERSE
+        # =============================
+
+        current_shift = msg.buttons[5]  # R1 toggle
 
         if current_shift == 1 and self.prev_shift == 0:
-            self.drive_mode = "REVERSE" if self.drive_mode == "DRIVE" else "DRIVE"
+            self.drive_mode = (
+                "REVERSE" if self.drive_mode == "DRIVE" else "DRIVE"
+            )
             self.get_logger().info(f">>> MODE: {self.drive_mode}")
 
         self.prev_shift = current_shift
 
-        # ============================
-        #         GEAR UP / DOWN
-        # ============================
-        gear_up = msg.buttons[3]    # Triangle
-        gear_down = msg.buttons[1]  # X
+        # =============================
+        #          GEAR SHIFT
+        # =============================
 
-        # ---- Gear Up ----
+        gear_up = msg.buttons[3]
+        gear_down = msg.buttons[1]
+
         if gear_up == 1 and self.prev_gear_up == 0:
-            if self.current_gear < 3:
+            if self.current_gear < self.num_gears - 1:
                 self.current_gear += 1
-                self.get_logger().info(f">>> GEAR UP → {self.current_gear + 1}")
-
+                self.get_logger().info(
+                    f">>> GEAR UP → {self.current_gear + 1}"
+                )
         self.prev_gear_up = gear_up
 
-        # ---- Gear Down ----
         if gear_down == 1 and self.prev_gear_down == 0:
             if self.current_gear > 0:
                 self.current_gear -= 1
-                self.get_logger().info(f">>> GEAR DOWN → {self.current_gear + 1}")
-
+                self.get_logger().info(
+                    f">>> GEAR DOWN → {self.current_gear + 1}"
+                )
         self.prev_gear_down = gear_down
 
-        # Publish gear indicator
         gear_msg = Int32()
-        gear_msg.data = self.current_gear + 1   # Publish 1–4
+        gear_msg.data = self.current_gear + 1
         self.pub_gear.publish(gear_msg)
 
-        # Get active gear parameters
         max_forward = self.gear_max_speeds[self.current_gear]
         accel_rate = self.gear_accel_rates[self.current_gear]
-        max_reverse = 1.0 # 1.0
-        brake_strength = 12.0
 
-        # ============================
-        #         HAND BRAKE
-        # ============================
+        # =============================
+        #         SAFETY LOGIC
+        # =============================
+
         if handbrake:
-            out = AckermannDriveStamped()
-            out.drive.speed = 0.0
-            out.drive.steering_angle = steer
-            self.prev_speed = 0.0
-            self.pub.publish(out)
+            self.publish_stop(steer)
             return
 
-        # ============================
-        #          DEADMAN
-        # ============================
         if not deadman:
-            self.prev_speed = 0.0
-            return
-            out = AckermannDriveStamped()
-            out.drive.speed = 0.0
-            out.drive.steering_angle = steer
-            self.prev_speed = 0.0
-            self.pub.publish(out)
+            self.publish_stop(steer)
             return
 
-        # ============================
-        #       NO INPUT → STOP
-        # ============================
         if gas == 0.0 and brake == 0.0:
-            out = AckermannDriveStamped()
-            out.drive.speed = 0.0
-            out.drive.steering_angle = steer
-            self.prev_speed = 0.0
-            self.pub.publish(out)
+            self.publish_stop(steer)
             return
 
-        # ============================
-        #       NORMAL OPERATION
-        # ============================
-        out = AckermannDriveStamped()
-        out.drive.steering_angle = steer
+        # =============================
+        #         SPEED LOGIC
+        # =============================
 
         if self.drive_mode == "DRIVE":
-            speed = gas * max_forward - brake * brake_strength
-            if speed < 0.0:
-                speed = 0.0
+            target = gas * max_forward - brake * self.brake_strength
+            if target < 0.0:
+                target = 0.0
         else:
-            speed = -(gas * max_reverse) + brake * max_reverse
-            if speed > 0.0:
-                speed = 0.0
+            target = -(gas * self.max_reverse) + brake * self.max_reverse
+            if target > 0.0:
+                target = 0.0
 
-        # ============================
-        #    ACCELERATION SMOOTHING
-        # ============================
-        speed = self.prev_speed + accel_rate * (speed - self.prev_speed)
+        speed = self.prev_speed + accel_rate * (target - self.prev_speed)
         self.prev_speed = speed
 
-        out.drive.speed = speed
+        out = AckermannDriveStamped()
+        out.drive.speed = float(speed)
+        out.drive.steering_angle = steer
+        self.pub.publish(out)
+
+    # ==========================================================
+    #                   HELPER: STOP
+    # ==========================================================
+
+    def publish_stop(self, steer):
+        out = AckermannDriveStamped()
+        out.drive.speed = 0.0
+        out.drive.steering_angle = steer
+        self.prev_speed = 0.0
         self.pub.publish(out)
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = ThrottleMix()
-    rclpy.spin(node)
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     node.destroy_node()
     rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

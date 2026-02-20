@@ -27,6 +27,7 @@ setup(
             'throttle_interpolator = f1tenth_stack.throttle_interpolator:main',
             'tf_publisher = f1tenth_stack.tf_publisher:main',
             'throttle_mix = f1tenth_stack.throttle_mix:main',
+            'speed_smoother = f1tenth_stack.speed_smoother:main',
         ],
     },
 )

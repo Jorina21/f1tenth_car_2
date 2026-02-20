@@ -85,12 +85,25 @@ def generate_launch_description():
         parameters=[LaunchConfiguration('vesc_config')],
     )
 
-    ld19_node = Node(
-        package='ldlidar_stl_ros2',
-        executable='ldlidar_stl_ros2_node',
-        name='LD19',
+    # ld19_node = Node(
+    #     package='ldlidar_stl_ros2',
+    #     executable='ldlidar_stl_ros2_node',
+    #     name='LD19',
+    #     parameters=[LaunchConfiguration('sensors_config')],
+    # )
+
+    hokuyo_node = Node(
+        package='urg_node',
+        executable='urg_node_driver',
+        name='hokuyo',
+        output='screen',
         parameters=[LaunchConfiguration('sensors_config')],
+        remappings=[
+            ('scan', '/scan'),
+        ],
     )
+
+
 
     ackermann_mux_node = Node(
         package='ackermann_mux',
@@ -131,6 +144,7 @@ def generate_launch_description():
         ackermann_to_vesc_node,   # reads /ackermann_cmd (unchanged)
         vesc_to_odom_node,
         vesc_driver_node,
-        ld19_node,
+        #ld19_node,
+        hokuyo_node,
         static_tf_node,
     ])

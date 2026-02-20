@@ -1,17 +1,28 @@
 wall_following:
   ros__parameters:
-    # Topics (defaults for REAL F1TENTH car stacks)
     scan_topic: "/scan"
-    odom_topic: "/vesc/odom"
     drive_topic: "/ackermann_cmd"
 
-    # Wall following geometry
-    target_distance: 0.55        # meters from wall
-    look_ahead: 1.0              # meters
-    beam_a_id: 340.0               # pick beams that look to the side
-    beam_b_id: 290.0
+    target_distance: 0.55
+    look_ahead: 0.9
+    beam_a_id: 340.0
+    beam_b_id: 300.0
 
-    # PID gains
-    K_p: 1.2
+    K_p: 0.9
     K_i: 0.0
-    K_d: 0.15
+    K_d: 0.25
+
+    steer_limit_rad: 0.40
+    i_limit: 1.0
+
+    speed_straight: 2.0
+    speed_medium: 1.5
+    speed_turn: 1.0
+    speed_hard_turn: 0.6
+
+    th_straight: 0.10
+    th_medium: 0.20
+    th_turn: 0.30
+
+    front_beam_id: 248.0
+    front_clearance_m: 5.0

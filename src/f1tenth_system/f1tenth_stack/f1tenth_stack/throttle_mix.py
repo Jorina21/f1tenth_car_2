@@ -159,10 +159,10 @@ class ThrottleMix(Node):
 
         if handbrake:
             self.publish_stop(steer)
-            return
+            return  
 
         if not deadman:
-            self.publish_stop(steer)
+            #self.publish_stop(steer)
             return
 
         if gas == 0.0 and brake == 0.0:

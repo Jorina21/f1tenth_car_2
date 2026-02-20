@@ -99,7 +99,7 @@ class PID(Node):
 
         # Calculate driving speed
         if msg.ranges[539] > 5 and msg.ranges[541] > 5 and msg.ranges[541] > 5 and abs(ut) < 0.1:
-            speed = 4.0  #2.0
+            speed = 3.2  #2.0
         elif abs(ut) < 5:
             speed = 1.5
         elif abs(ut) < 10:

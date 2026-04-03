@@ -1,0 +1,85 @@
+Running Slam Took box 
+ros2 launch f1tenth_stack bringup_launch.py
+Get bring up working
+
+ros2 launch slam_toolbox online_async_launch.py   slam_params_file:=/home/arc/f1tenth_ws/src/config/slam_params.yaml
+
+
+ros2 launch slam_toolbox online_async_launch.py   use_sim_time:=false   slam_params_file:=/home/arc/f1tenth_ws/src/config/slam_params.yaml
+
+Save map
+mkdir -p ~/f1tenth_ws/maps 
+
+ros2 run nav2_map_server map_saver_cli -f ~/f1tenth_ws/maps/sl27_hallway_map -t /map --ros-args -p map_subscribe_transient_local:=true
+
+
+Localization mode slam
+ros2 launch slam_toolbox localization_launch.py slam_params_file:=/home/arc/f1tenth_ws/src/config/slam_localization.yaml
+
+
+	Localizatin VIA AMCL (adaption monte carlo localization) 
+
+ros2 launch f1tenth_localization amcl_localization.launch.py map:=/home/arc/f1tenth_ws/maps/sl27_hallway_map.yaml
+
+
+
+
+Running PURE PURSUIT
+
+ros2 run pure_pursuit pure_pursuit --ros-args \
+  -p waypoints_csv:=/home/arc/f1tenth_ws/waypoints/sl27_points.csv \
+  -p odom_topic:=/odom \
+  -p drive_topic:=/drive \
+  -p lookahead_distance:=0.8 \
+  -p speed:=0.6 \
+  -p wheelbase:=0.254
+
+
+Running Trajectory_tools 
+
+ros2 run trajectory_tools build_trajectory \
+  --input /path/to/raw_waypoints.csv \
+  --output /path/to/race_line.csv
+
+    ACTUAL COMMAND 
+
+    ros2 run trajectory_tools build_trajectory \
+    --input /home/arc/f1tenth_ws/waypoints/sl27_points.csv \
+    --output /home/arc/f1tenth_ws/waypoints/enriched_waypoints/race_line.csv
+
+ros2 run trajectory_tools plot_trajectory \
+  --input /path/to/race_line.csv \
+  --color-by velocity
+
+ros2 run trajectory_tools plot_trajectory \
+  --input /home/arc/f1tenth_ws/waypoints/enriched_waypoints/race_line.csv \
+  --color-by velocity
+
+
+ros2 run trajectory_tools plot_waypoints \
+  --input /home/arc/f1tenth_ws/waypoints/sl27_points.csv \
+  --show-indices
+
+Plot points against map
+
+ros2 run trajectory_tools overlay_waypoints_on_map \
+  --waypoints /home/arc/f1tenth_ws/waypoints/sl27_points.csv \
+  --map-yaml /home/arc/f1tenth_ws/maps/sl27_hallway_map.yaml
+
+
+Smoothwaypoints 
+
+ros2 run trajectory_tools smooth_waypoints \
+  --input /home/arc/f1tenth_ws/waypoints/raw/sl27_points.csv \
+  --output /home/arc/f1tenth_ws/waypoints/enriched/sl27_points_smoothed.csv
+
+			OR 
+
+ros2 run trajectory_tools smooth_waypoints \
+  --input /home/arc/f1tenth_ws/waypoints/raw/sl27_points.csv \
+  --output /home/arc/f1tenth_ws/waypoints/enriched/sl27_points_smoothed.csv \
+  --window-size 11 \
+  --passes 3
+
+
+

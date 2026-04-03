@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'simple_driver'
+package_name = 'pure_pursuit'
 
 setup(
     name=package_name,
@@ -13,14 +13,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='jorina',
-    maintainer_email='jorina@todo.todo',
-    description='Simple driver for F1TENTH sim',
-    license='TODO: License declaration',
-    extras_require={'test': ['pytest']},
+    maintainer='john',
+    maintainer_email='john@example.com',
+    description='Pure pursuit controller for F1TENTH',
+    license='Apache License 2.0',
+    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'simple_driver = simple_driver.simple_driver_node:main',
+            'pure_pursuit = pure_pursuit.pure_pursuit:main',
         ],
     },
 )

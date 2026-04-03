@@ -1,11 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>simple_driver</name>
+  <name>pure_pursuit</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="jorina@todo.todo">jorina</maintainer>
+  <maintainer email="Johnorina21@gmail.com">arc</maintainer>
   <license>TODO: License declaration</license>
+
+  <depend>rclpy</depend>
+  <depend>nav_msgs</depend>
+  <depend>ackermann_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

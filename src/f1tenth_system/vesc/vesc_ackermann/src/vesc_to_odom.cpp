@@ -63,7 +63,7 @@ VescToOdom::VescToOdom(const rclcpp::NodeOptions & options)
 
   // speed_to_erpm_gain_ = declare_parameter("speed_to_erpm_gain").get<double>();
   // speed_to_erpm_offset_ = declare_parameter("speed_to_erpm_offset").get<double>();
-  speed_to_erpm_gain_ = this->declare_parameter<double>("speed_to_erpm_gain", 1.0);
+  speed_to_erpm_gain_ = this->declare_parameter<double>("speed_to_erpm_gain", -1.0);
   speed_to_erpm_offset_ = this->declare_parameter<double>("speed_to_erpm_offset", 0.0);
 
 

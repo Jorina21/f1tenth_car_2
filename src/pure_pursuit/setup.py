@@ -8,14 +8,14 @@ setup(
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
-            ['resource/' + package_name]),
+         ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='john',
     maintainer_email='john@example.com',
-    description='Pure pursuit controller for F1TENTH',
+    description='Pure pursuit controller using AMCL and CSV waypoints',
     license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={

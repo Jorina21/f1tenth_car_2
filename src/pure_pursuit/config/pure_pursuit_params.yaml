@@ -1,0 +1,25 @@
+pure_pursuit:
+  ros__parameters:
+    waypoints_csv: /home/arc/f1tenth_ws/waypoints/raw/sl28_points.csv
+    amcl_topic: /amcl_pose
+    drive_topic: /drive
+
+    base_lookahead: 1.1
+    lookahead_speed_gain: 0.4
+
+    min_speed: 0.6
+    max_speed: 1.3
+    curvature_speed_gain: 2.0
+
+    wheelbase: 0.33
+    max_steering_angle: 0.4189
+    goal_tolerance: 0.40
+
+    control_rate_hz: 20.0
+    loop_path: false
+
+    steering_smoothing_alpha: 0.80
+
+    debug: true
+    log_pose_every_n: 20
+    log_control_every_n: 10

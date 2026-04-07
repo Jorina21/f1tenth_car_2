@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from glob import glob
 import os
 
-package_name = 'pure_pursuit'
+package_name = 'rrt_planner'
 
 setup(
     name=package_name,
@@ -19,12 +19,12 @@ setup(
     zip_safe=True,
     maintainer='john',
     maintainer_email='john@example.com',
-    description='Improved pure pursuit controller for F1TENTH',
+    description='Local reactive RRT planner for F1TENTH',
     license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'pure_pursuit = pure_pursuit.pure_pursuit:main',
+            'rrt_planner = rrt_planner.rrt_planner:main',
         ],
     },
 )

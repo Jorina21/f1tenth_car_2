@@ -1,0 +1,27 @@
+follow_the_gap:
+  ros__parameters:
+    scan_topic: /scan
+    drive_topic: /drive
+
+    max_lidar_range: 10.0
+    smoothing_window_size: 3
+
+    min_angle_deg: -90.0
+    max_angle_deg: 90.0
+
+    bubble_radius_indices: 10
+    min_gap_size: 5
+
+    best_point_method: furthest
+
+    max_steering_angle: 0.4189
+
+    straight_speed: 2.0
+    medium_speed: 1.5
+    corner_speed: 1.0 #0.6
+
+    straight_steering_threshold: 0.10
+    medium_steering_threshold: 0.25
+
+    debug: true
+    log_every_n: 10

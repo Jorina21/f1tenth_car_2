@@ -13,25 +13,15 @@ from ackermann_msgs.msg import AckermannDriveStamped
 
 class PurePursuit(Node):
     """
-    Pure Pursuit controller using AMCL pose and CSV waypoints.
+    Improved Pure Pursuit controller for F1TENTH.
 
-    Purpose:
-    - Load x,y waypoints from CSV
-    - Subscribe to /amcl_pose
-    - Find nearest waypoint
-    - Find a lookahead waypoint ahead on the path
-    - Compute steering with pure pursuit
-    - Publish AckermannDriveStamped to /drive
-
-    Expected CSV formats:
-    x,y
-    1.0,2.0
-    1.1,2.1
-
-    or
-
-    1.0,2.0
-    1.1,2.1
+    Improvements added:
+    - Uses AMCL pose (x, y, yaw)
+    - Nearest waypoint -> lookahead waypoint selection
+    - Dynamic lookahead based on speed
+    - Steering smoothing
+    - Curvature-based speed reduction
+    - Better debug logging
     """
 
     def __init__(self) -> None:
@@ -44,14 +34,21 @@ class PurePursuit(Node):
         self.declare_parameter('amcl_topic', '/amcl_pose')
         self.declare_parameter('drive_topic', '/drive')
 
-        self.declare_parameter('lookahead_distance', 0.8)
-        self.declare_parameter('speed', 0.6)
+        self.declare_parameter('base_lookahead', 0.9)
+        self.declare_parameter('lookahead_speed_gain', 0.5)
+
+        self.declare_parameter('min_speed', 0.6)
+        self.declare_parameter('max_speed', 1.8)
+        self.declare_parameter('curvature_speed_gain', 2.0)
+
         self.declare_parameter('wheelbase', 0.33)
-        self.declare_parameter('max_steering_angle', 0.4189)  # ~24 degrees
+        self.declare_parameter('max_steering_angle', 0.4189)
         self.declare_parameter('goal_tolerance', 0.40)
 
         self.declare_parameter('control_rate_hz', 20.0)
         self.declare_parameter('loop_path', False)
+
+        self.declare_parameter('steering_smoothing_alpha', 0.75)
 
         self.declare_parameter('debug', True)
         self.declare_parameter('log_pose_every_n', 20)
@@ -61,14 +58,23 @@ class PurePursuit(Node):
         self.amcl_topic: str = self.get_parameter('amcl_topic').value
         self.drive_topic: str = self.get_parameter('drive_topic').value
 
-        self.lookahead_distance: float = float(self.get_parameter('lookahead_distance').value)
-        self.speed: float = float(self.get_parameter('speed').value)
+        self.base_lookahead: float = float(self.get_parameter('base_lookahead').value)
+        self.lookahead_speed_gain: float = float(self.get_parameter('lookahead_speed_gain').value)
+
+        self.min_speed: float = float(self.get_parameter('min_speed').value)
+        self.max_speed: float = float(self.get_parameter('max_speed').value)
+        self.curvature_speed_gain: float = float(self.get_parameter('curvature_speed_gain').value)
+
         self.wheelbase: float = float(self.get_parameter('wheelbase').value)
         self.max_steering_angle: float = float(self.get_parameter('max_steering_angle').value)
         self.goal_tolerance: float = float(self.get_parameter('goal_tolerance').value)
 
         self.control_rate_hz: float = float(self.get_parameter('control_rate_hz').value)
         self.loop_path: bool = bool(self.get_parameter('loop_path').value)
+
+        self.steering_smoothing_alpha: float = float(
+            self.get_parameter('steering_smoothing_alpha').value
+        )
 
         self.debug: bool = bool(self.get_parameter('debug').value)
         self.log_pose_every_n: int = int(self.get_parameter('log_pose_every_n').value)
@@ -87,6 +93,8 @@ class PurePursuit(Node):
         self.finished: bool = False
 
         self.last_nearest_index: int = 0
+        self.prev_steering_angle: float = 0.0
+
         self.pose_log_counter: int = 0
         self.control_log_counter: int = 0
 
@@ -116,9 +124,9 @@ class PurePursuit(Node):
         timer_period = 1.0 / self.control_rate_hz
         self.timer = self.create_timer(timer_period, self.control_loop)
 
-        self.get_logger().info('Pure Pursuit node started.')
-        self.get_logger().info(f'Subscribing to AMCL: {self.amcl_topic}')
-        self.get_logger().info(f'Publishing drive commands to: {self.drive_topic}')
+        self.get_logger().info('Improved Pure Pursuit node started.')
+        self.get_logger().info(f'AMCL topic: {self.amcl_topic}')
+        self.get_logger().info(f'Drive topic: {self.drive_topic}')
 
     # ---------------------------------------------------------
     # CSV loading
@@ -142,7 +150,7 @@ class PurePursuit(Node):
                         y = float(row[1].strip())
                         points.append((x, y))
                     except ValueError:
-                        # Skip header or malformed line
+                        # Skip header or bad rows
                         continue
 
         except FileNotFoundError:
@@ -201,17 +209,20 @@ class PurePursuit(Node):
                 return
 
         nearest_index = self.find_nearest_waypoint_index()
-        target_index = self.find_lookahead_index_from(nearest_index)
 
+        # Use max_speed here as design speed for lookahead growth
+        dynamic_lookahead = self.base_lookahead + self.lookahead_speed_gain * self.max_speed
+
+        target_index = self.find_lookahead_index_from(nearest_index, dynamic_lookahead)
         target_x, target_y = self.waypoints[target_index]
+
         local_x, local_y = self.global_to_local(target_x, target_y)
 
-        # If target is behind car, do not blindly drive straight.
         if local_x <= 0.0:
             if self.debug:
                 self.get_logger().warn(
                     f'Target behind vehicle. nearest={nearest_index}, target={target_index}, '
-                    f'local_x={local_x:.3f}, local_y={local_y:.3f}. Stopping.'
+                    f'local_x={local_x:.3f}, local_y={local_y:.3f}'
                 )
             self.publish_drive(0.0, 0.0)
             return
@@ -224,39 +235,46 @@ class PurePursuit(Node):
         # Pure pursuit curvature
         curvature = 2.0 * local_y / (Ld * Ld)
 
-        # Ackermann steering
-        steering_angle = math.atan(self.wheelbase * curvature)
+        # Raw steering
+        raw_steering = math.atan(self.wheelbase * curvature)
 
-        # Clamp steering
-        steering_angle = max(
+        # Clamp raw steering
+        raw_steering = max(
             -self.max_steering_angle,
-            min(self.max_steering_angle, steering_angle)
+            min(self.max_steering_angle, raw_steering)
         )
+
+        # Steering smoothing
+        alpha = self.steering_smoothing_alpha
+        steering_angle = alpha * self.prev_steering_angle + (1.0 - alpha) * raw_steering
+        self.prev_steering_angle = steering_angle
+
+        # Curvature-based speed control
+        speed_cmd = self.max_speed / (1.0 + self.curvature_speed_gain * abs(curvature))
+        speed_cmd = max(self.min_speed, min(self.max_speed, speed_cmd))
 
         if self.debug:
             self.control_log_counter += 1
             if self.control_log_counter % self.log_control_every_n == 0:
                 self.get_logger().info(
                     f'nearest={nearest_index}, target={target_index}, '
+                    f'lookahead={dynamic_lookahead:.2f}, '
                     f'target_xy=({target_x:.2f},{target_y:.2f}), '
                     f'local_xy=({local_x:.2f},{local_y:.2f}), '
-                    f'Ld={Ld:.2f}, curv={curvature:.3f}, steer={steering_angle:.3f}, speed={self.speed:.2f}'
+                    f'Ld={Ld:.2f}, curv={curvature:.3f}, '
+                    f'raw_steer={raw_steering:.3f}, steer={steering_angle:.3f}, '
+                    f'speed={speed_cmd:.2f}'
                 )
 
-        self.publish_drive(self.speed, steering_angle)
+        self.publish_drive(speed_cmd, steering_angle)
 
     # ---------------------------------------------------------
     # Find nearest waypoint
     # ---------------------------------------------------------
     def find_nearest_waypoint_index(self) -> int:
-        """
-        Find the nearest waypoint to the current AMCL pose.
-        Uses last_nearest_index as a hint so it doesn't jump around as much.
-        """
         if not self.waypoints:
             return 0
 
-        # Search window from last_nearest_index forward, but allow a little backward scan too
         start = max(0, self.last_nearest_index - 20)
         end = min(len(self.waypoints), self.last_nearest_index + 200)
 
@@ -271,7 +289,7 @@ class PurePursuit(Node):
                 nearest_dist = dist
                 nearest_index = i
 
-        # Fallback in case the local window somehow fails
+        # Fallback global search
         if nearest_dist == float('inf'):
             for i, (wx, wy) in enumerate(self.waypoints):
                 dist = self.distance(self.current_x, self.current_y, wx, wy)
@@ -285,11 +303,7 @@ class PurePursuit(Node):
     # ---------------------------------------------------------
     # Find lookahead waypoint
     # ---------------------------------------------------------
-    def find_lookahead_index_from(self, nearest_index: int) -> int:
-        """
-        Starting from the nearest waypoint, move forward until the waypoint
-        is at least lookahead_distance away.
-        """
+    def find_lookahead_index_from(self, nearest_index: int, lookahead_distance: float) -> int:
         n = len(self.waypoints)
 
         if n == 0:
@@ -300,14 +314,14 @@ class PurePursuit(Node):
                 i = (nearest_index + step) % n
                 wx, wy = self.waypoints[i]
                 dist = self.distance(self.current_x, self.current_y, wx, wy)
-                if dist >= self.lookahead_distance:
+                if dist >= lookahead_distance:
                     return i
             return nearest_index
 
         for i in range(nearest_index, n):
             wx, wy = self.waypoints[i]
             dist = self.distance(self.current_x, self.current_y, wx, wy)
-            if dist >= self.lookahead_distance:
+            if dist >= lookahead_distance:
                 return i
 
         return n - 1
@@ -316,12 +330,6 @@ class PurePursuit(Node):
     # Coordinate transform
     # ---------------------------------------------------------
     def global_to_local(self, target_x: float, target_y: float) -> Tuple[float, float]:
-        """
-        Convert a point from map/global frame into vehicle local frame.
-        Vehicle frame convention used here:
-        - +x forward
-        - +y left
-        """
         dx = target_x - self.current_x
         dy = target_y - self.current_y
 
@@ -334,7 +342,7 @@ class PurePursuit(Node):
         return local_x, local_y
 
     # ---------------------------------------------------------
-    # Drive publisher
+    # Publish drive command
     # ---------------------------------------------------------
     def publish_drive(self, speed: float, steering_angle: float) -> None:
         msg = AckermannDriveStamped()

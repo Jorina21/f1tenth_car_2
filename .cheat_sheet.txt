@@ -26,6 +26,8 @@ ros2 launch f1tenth_localization amcl_localization.launch.py map:=/home/arc/f1te
 
 Running PURE PURSUIT
 
+ros2 launch pure_pursuit pure_pursuit.launch.py
+
 ros2 run pure_pursuit pure_pursuit --ros-args \
   -p waypoints_csv:=/home/arc/f1tenth_ws/waypoints/raw/sl28_points.csv \
   -p odom_topic:=/odom \
@@ -42,6 +44,28 @@ ros2 run pure_pursuit pure_pursuit --ros-args \
   -p speed:=-0.5 \
   -p wheelbase:=0.33 \
   -p debug:=true
+
+
+
+
+Pure pursuit improved 
+
+ros2 launch pure_pursuit pure_pursuit.launch.py
+
+ros2 run pure_pursuit pure_pursuit --ros-args \
+  -p waypoints_csv:=/home/arc/f1tenth_ws/waypoints/raw/sl28_points.csv \
+  -p amcl_topic:=/amcl_pose \
+  -p drive_topic:=/drive \
+  -p base_lookahead:=1.1 \
+  -p lookahead_speed_gain:=0.4 \
+  -p min_speed:=0.6 \
+  -p max_speed:=1.3 \
+  -p curvature_speed_gain:=2.0 \
+  -p wheelbase:=0.33 \
+  -p steering_smoothing_alpha:=0.80 \
+  -p debug:=true
+
+
 
 Running Trajectory_tools 
 

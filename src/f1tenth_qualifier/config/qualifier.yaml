@@ -1,0 +1,160 @@
+qualifier_node:
+  ros__parameters:
+
+    # ============================================================
+    # ROS TOPICS / INPUTS
+    # ============================================================
+
+    scan_topic: "/scan"                         # LiDAR scan topic. Range: any valid LaserScan topic. Ideal: "/scan". Change only if your LiDAR publishes on another topic.
+
+    odom_topic: "/odom"                         # Odometry topic used for car speed feedback. Range: any valid Odometry topic. Ideal: "/odom". Change only if your odom topic name is different.
+
+    pose_topic: "/amcl_pose"                    # Pose topic used for x/y/yaw localization when use_amcl_pose is true. Range: valid PoseWithCovarianceStamped topic. Ideal: "/amcl_pose" when using map localization. Change if using a different localization topic.
+
+    use_amcl_pose: true                         # true = use /amcl_pose for position; false = use /odom pose. Range: true/false. Ideal: true if waypoints are in map frame. Set false only if waypoints were recorded in odom frame.
+
+    drive_topic: "/drive"                       # Output AckermannDriveStamped command topic. Range: "/drive", "/ackermann_cmd", or your mux input. Ideal: topic with an active subscriber. Change if car does not respond.
+
+    waypoint_file: "/home/arc/f1tenth_ws/waypoints/enriched_waypoints/raceline_2_enriched.csv" # CSV raceline file. Must contain x,y,yaw,curvature,speed. Change when switching tracks/racelines.
+
+    # Alternative waypoint file example. Keep commented unless needed.
+    # waypoint_file: "/home/arc/f1tenth_ws/waypoints/enriched_waypoints/ld_3rd_waypoints_enriched.csv"
+
+
+    # ============================================================
+    # VEHICLE MODEL
+    # ============================================================
+
+    wheelbase: 0.254                            # Distance between front and rear axle in meters. Range: 0.20-0.35 for F1TENTH. Ideal: measured real wheelbase, often 0.254. If steering feels mathematically too weak/strong, verify this.
+
+
+    # ============================================================
+    # FEATURE ENABLES
+    # ============================================================
+
+    enable_obstacle_avoidance:  false  #true             # true = allow Frenet left/right path selection around obstacles. Range: true/false. Ideal: false while tuning pure pursuit, true only after raceline follow is stable. Turn off if car randomly swerves or constantly says OBSTACLE_AVOID.
+
+    enable_recovery: false #true                       # true = allow stuck/offline recovery. Range: true/false. Ideal: false while tuning, true for race safety after stable laps. Turn off if car unexpectedly reverses or changes state too often.
+
+
+    # ============================================================
+    # SPEED LIMITS / GLOBAL SPEED CONTROL
+    # ============================================================
+
+    max_speed: 3.0 #1.5                             # Maximum commanded speed in m/s. Range: 0.5-4.0. Ideal narrow-track tuning: 1.0-2.0. Increase if car is clean and too slow. Decrease if it hits walls, oscillates, or cannot make turns.
+
+    min_speed: 0.6                             # Minimum normal forward speed in m/s. Range: 0.20-1.50. Ideal narrow track: 0.40-0.80. Lower if car pushes through turns or hits walls. Raise only if car becomes too slow/stalls on straights.
+
+    speed_scale: 1.0 #1.00                            # Multiplies waypoint CSV speed. Range: 0.30-1.50. Ideal: 1.0 means no scaling. Use 0.5 for safe testing, 0.8 for faster testing, >1.0 only after clean laps.
+
+    recovery_speed: 0.35                        # Forward crawl speed during recovery in m/s. Range: 0.20-0.70. Ideal: 0.30-0.40. Use positive value. Lower if recovery is too aggressive. Raise if recovery cannot move the car.
+
+
+    # ============================================================
+    # PURE PURSUIT LOOKAHEAD
+    # ============================================================
+
+    lookahead_min: 0.35 #0.10                         # Minimum target distance ahead in meters. Range: 0.40-1.20. Ideal narrow track: 0.70-0.90. Increase if car twitches/oscillates. Decrease if car reacts too late or cuts corners.
+
+    lookahead_max: 2.7  #2.0                        # Maximum target distance ahead in meters. Range: 1.00-3.00. Ideal narrow track: 1.50-2.00. Decrease if car cuts corners or drifts toward walls. Increase if car is twitchy on straights.
+
+    lookahead_gain: 1.0 #0.35                        # Adds lookahead as speed increases. Range: 0.10-0.60. Ideal: 0.25-0.40. Increase if car gets twitchy at higher speed. Decrease if car gets lazy/cuts turns at speed.
+
+
+    # ============================================================
+    # STEERING LIMITING / SMOOTHING
+    # ============================================================
+
+    steering_limit: 0.75 #0.65 #0.45 #0.35                        # Maximum steering angle command in radians. Range: 0.25-0.45. Ideal: 0.35. Increase if car cannot make tight turns. Decrease if steering is too aggressive or oscillates.
+
+    steering_rate_limit: 0.5 #1.0                    # Max steering change speed in rad/s. Range: 0.8-3.0. Ideal narrow track: 1.0-1.5. Lower if steering snaps left/right. Raise if car reacts too slowly to turns.
+
+    steering_smoothing_alpha: 0.50 #0.25              # Steering low-pass filter. Range: 0.10-0.70. Ideal: 0.25-0.35. Lower = smoother but slower. Raise if car reacts too slowly. Lower if car wiggles or S-curves.
+
+
+    # ============================================================
+    # ACCELERATION / DECELERATION LIMITS
+    # ============================================================
+
+    accel_limit: 0.4 #1.0                            # How fast speed command can increase in m/s^2. Range: 0.3-2.0. Ideal: 0.6-1.0. Lower if car launches too hard or breaks traction. Raise if acceleration is too lazy.
+
+    decel_limit: 2.0                            # How fast speed command can decrease in m/s^2. Range: 1.0-4.0. Ideal: 2.0-3.0. Raise if car does not slow enough before turns. Lower if speed drops too harshly.
+
+
+    # ============================================================
+    # SPEED REDUCTION IN TURNS
+    # ============================================================
+
+    steering_slowdown_gain: 4.0                 # Reduces speed when steering angle is large. Range: 1.0-4.0. Ideal narrow track: 2.0-3.0. Increase if car enters turns too fast. Decrease if car slows too much in gentle turns.
+
+    max_lateral_accel: 1.5                      # Curvature-based cornering limit in m/s^2. Range: 1.0-5.0. Ideal narrow track: 1.5-2.5. Lower if car slides/runs wide in curves. Raise if car is stable but too slow in curves.
+
+
+    # ============================================================
+    # FRENET OBSTACLE AVOIDANCE
+    # Only active when enable_obstacle_avoidance: true
+    # ============================================================
+
+    frenet_max_offset: 0.10                     # Maximum left/right shift from raceline in meters. Range narrow track: 0.10-0.50. Ideal: 0.20-0.35. Increase if car cannot move around obstacles. Decrease if it swerves too far toward walls.
+
+    frenet_num_offsets: 5                       # Number of candidate left/right paths. Range: 3-9. Ideal narrow track: 3-5. Increase if planner needs more path options. Decrease if obstacle avoid is noisy or CPU load is high.
+
+    frenet_horizon: 1.8                         # How far ahead obstacle planner evaluates in meters. Range: 1.0-3.0. Ideal narrow track: 1.5-2.2. Increase if it reacts too late. Decrease if it overreacts to far obstacles/walls.
+
+    frenet_step: 0.25                           # Desired sample spacing for Frenet path checks. Range: 0.10-0.50. Ideal: 0.20-0.30. In current code this may be mostly placeholder if path follows waypoint spacing. Smaller = more detailed, larger = rougher.
+
+    path_corridor_width: 1.5                    # Width around raceline considered blocked by obstacles. Range: 0.30-1.50. Ideal narrow track: 0.40-0.80. Your 1.5 is very wide. Lower if it constantly enters OBSTACLE_AVOID. Raise if it misses obstacles.
+
+    collision_radius: 0.50                      # Safety bubble around candidate path in meters. Range: 0.10-0.40 normally. Ideal narrow track: 0.15-0.25. Your 0.50 is very conservative and may reject tight gaps. Lower if it refuses valid openings. Raise if it clips obstacles.
+
+
+    # ============================================================
+    # FRONT OBSTACLE / GUARDIAN SAFETY
+    # ============================================================
+
+    obstacle_detect_distance: 1.0               # Distance ahead to start considering raceline blocked. Range: 1.0-3.0. Ideal narrow track: 1.5-2.0. Increase if obstacle avoidance reacts late. Decrease if false triggers happen in turns.
+
+    obstacle_slow_distance: 0.2                 # Front distance where speed starts getting reduced. Range: 0.5-2.0. Ideal narrow track: 0.8-1.2. Increase if car approaches walls/objects too fast. Decrease if it slows too early.
+
+    obstacle_stop_distance: 0.05                # Front distance for emergency stop in meters. Range: 0.20-0.50. Ideal narrow track: 0.25-0.35. Increase if car bumps obstacles. Decrease only if it falsely stops in tight areas.
+
+
+    # ============================================================
+    # WALL AVOIDANCE / SIDE GUARDIAN
+    # ============================================================
+
+    wall_min_distance: 0.45 #0.35                     # Side distance where wall correction begins in meters. Range: 0.15-0.40. Ideal narrow track: 0.20-0.28. Increase if car gets too close to walls. Decrease if wall correction interferes on tight track.
+
+    wall_avoid_gain: 0.50 #0.60                       # Strength of steering push away from walls. Range: 0.0-0.8. Ideal narrow track: 0.10-0.30. Increase if car scrapes walls. Decrease if it wiggles or fights the raceline. 0.0 disables wall steering bias.
+
+
+    # ============================================================
+    # RECOVERY TRIGGER LOGIC
+    # Only active when enable_recovery: true
+    # ============================================================
+
+    recovery_trigger_time: 2.0                  # Time in seconds before stuck/offline recovery activates. Range: 0.5-2.0. Ideal: 1.0. Increase if recovery triggers too easily. Decrease if car waits too long when stuck.
+
+    stuck_speed_threshold: 0.12                 # Actual speed below this may count as stuck. Range: 0.05-0.25. Ideal: 0.10-0.15. Increase if stuck is not detected. Decrease if recovery triggers while moving slowly.
+
+    stuck_command_threshold: 0.6                # If commanded speed is above this but actual speed is low, car may be stuck. Range: 0.3-1.0. Ideal: 0.5-0.7. Increase if false stuck triggers happen. Decrease if stuck detection is too slow.
+
+    max_heading_error_recovery: 1.2            # Heading error threshold for recovery in radians. Range: 0.5-1.5. Ideal: 0.9-1.2. Lower if car keeps driving while badly pointed. Raise if recovery triggers too often in corners.
+
+    max_raceline_distance_recovery: 1.5         # Max distance from raceline before recovery in meters. Range: 0.3-1.5. Ideal narrow track: 0.6-0.9. Lower if car leaves line and does not recover. Raise if recovery triggers due to localization noise.
+
+
+    # ============================================================
+    # REVERSE RECOVERY
+    # ============================================================
+
+    reverse_speed: -0.4                         # Reverse speed during recovery in m/s. Range: -0.2 to -0.9. Ideal: -0.25 to -0.40. Your -0.9 is aggressive. Make less negative if reverse is violent or unsafe.
+
+    max_reverse_time: 0.6                       # Maximum reverse duration in seconds. Range: 0.2-1.0. Ideal: 0.4-0.6. Increase if it does not back out enough. Decrease if it reverses too far.
+
+
+    # ============================================================
+    # CONTROL LOOP
+    # ============================================================
+
+    control_rate_hz: 40.0                       # Controller update rate in Hz. Range: 20-80. Ideal: 40. Keep unless CPU is struggling or controls feel delayed.

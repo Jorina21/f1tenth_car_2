@@ -60,7 +60,7 @@ class gapFollow(Node):
         self.declare_parameter('beam_b_id', 981.0) # 110 Degrees
         self.declare_parameter('turn_a_id', 420.0) # -30 Degrees
         self.declare_parameter('turn_b_id', 1080.0) # 150 Degrees
-        self.declare_parameter('bubble_radius', 1.0)
+        self.declare_parameter('bubble_radius', 1.2)
         self.declare_parameter('disparity_thresh', 1.0)
 
         # Initialize Node Variables
@@ -249,11 +249,11 @@ class gapFollow(Node):
         #    ut/= 10
 
         # Calculate driving speed
-        if abs(ut) < 0.5 and scanRanges[num_beam//2] > 15:
-            speed = 1.5 # 10.0
-        elif abs(ut) < 0.5 and scanRanges[num_beam//2] > 8:
-            speed = 1.0 # 7.0
-        elif abs(ut) < 1:
+        if abs(ut) < 0.2 and scanRanges[num_beam//2] > 5:
+            speed = 4.5 # 10.0
+        elif abs(ut) < 0.5 and scanRanges[num_beam//2] > 4:
+            speed = 2.5 # 7.0
+        elif abs(ut) < 1.0:
             speed = 1.0
         else:
             speed = 0.5

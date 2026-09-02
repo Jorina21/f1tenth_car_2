@@ -20,11 +20,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'build_trajectory = trajectory_tools.build_trajectory:main',
-            'plot_trajectory = trajectory_tools.plot_trajectory:main',
-            'plot_waypoints = trajectory_tools.plot_waypoints:main',
             'overlay_waypoints_on_map = trajectory_tools.overlay_waypoints_on_map:main',
-            'smooth_waypoints = trajectory_tools.smooth_waypoints:main',
+            "generate_trajectory = trajectory_tools.generate_trajectory:main",
+            'map_to_xy = trajectory_tools.map_to_xy:main',
+            'pixel_anchors_to_xy = trajectory_tools.pixel_anchors_to_xy:main',
         ],
     },
 )

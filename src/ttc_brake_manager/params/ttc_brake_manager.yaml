@@ -1,40 +1,114 @@
 ttc_brake_manager:
   ros__parameters:
+    # -------------------------
+    # Topics
+    # -------------------------
     joy_topic: /joy
     scan_topic: /scan
+    odom_topic: /odom
     cmd_topic: /ackermann_cmd
+
     brake_topic: /commands/motor/brake
     drive_enable_topic: /drive_enable
     safety_drive_topic: /safety/drive
+    debug_mode_topic: /ttc_brake_manager/mode
 
-    stop_on_soft_brake: true
-    stop_on_brake_hold: false #true applies break when no gas is given
+    # -------------------------
+    # Controller mapping
+    # Verify with:
+    #   ros2 topic echo /joy --once
+    #
+    # If holding L1 causes braking, your value may be inverted.
+    # Try deadman_pressed_value: 0 or 1 depending on /joy output.
+    # -------------------------
+    deadman_button_index: 4
+    deadman_pressed_value: 1
 
-    enable_brake_hold: false #brake applied without gas 
-    stop_speed_threshold: 0.10
-    brake_hold: 5.0  #invoked is brakehold enabed 
-
-    # Verify indices with: ros2 topic echo /joy --once
-    l1_button_index: 4
-    l2_axis_index: 3 #L2 = 3
-    l2_axis_mode: auto     # auto | 0_to_1 | 1_to_minus1
+    soft_brake_axis_index: 3
+    soft_brake_axis_mode: auto
     soft_brake_deadzone: 0.08
 
+    # -------------------------
     # Brake tuning
-    hard_brake: 45.0 #45 A
-    soft_brake_max: 30.0 
+    # These are brake current values.
+    # They are NOT normalized 0.0-1.0 values.
+    #
+    # Start low. Do NOT start with 45.0 while testing.
+    # If positive brake launches forward, set brake_sign: -1.0
+    # but only test wheels off the ground.
+    # -------------------------
+    hard_brake: 5.0
+    soft_brake_max: 3.0
+    brake_sign: 1.0
 
+    # -------------------------
+    # Brake hold
+    # Leave disabled unless you want brake applied when no throttle is given.
+    # -------------------------
+    enable_brake_hold: false
+    stop_on_brake_hold: false
+    stop_speed_threshold: 0.10
+    brake_hold: 1.0
+
+    # -------------------------
+    # Soft brake behavior
+    # true  = L2 brake also publishes stop to /safety/drive
+    # false = L2 brake only publishes brake current
+    # -------------------------
+    stop_on_soft_brake: true
+
+    # -------------------------
     # TTC tuning
-    ttc_enabled: true
-    ttc_threshold: 0.55 #collison in >0.55 sec (race =0.30-0.5), indoor = 0.6 -0.7
-    ttc_release_threshold: 0.80 # hysteresis (relase brake when ttc > .80)
-    ttc_min_speed: 0.40 #ttc is ignored below 0.4 m/s
-    front_angle_deg: 30.0 #front lidar beams used
-    ttc_min_range: 0.20 #ignored very close readings from bumber
+    # Keep false until deadman/brake direction are verified.
+    # Then change to true.
+    # -------------------------
+    ttc_enabled: false
+
+    ttc_threshold: 0.55
+    ttc_release_threshold: 0.80
+    ttc_min_speed: 0.40
+
+    front_angle_deg: 30.0
+    ttc_min_range: 0.20
+    use_abs_odom_speed: true
+
+    # -------------------------
+    # Close-distance backup stop
+    # Keep false until brake behavior is safe.
+    # Then you can turn it on.
+    # -------------------------
+    enable_distance_stop: false
+    distance_stop_range: 0.35
+    distance_stop_front_angle_deg: 15.0
+
+    # -------------------------
+    # Safety latch timing
+    # -------------------------
     emergency_hold_time: 0.35
-    
+    deadman_release_hold_time: 0.20
+    soft_brake_release_hold_time: 0.10
+    hold_release_hold_time: 0.10
+    stale_sensor_hold_time: 0.40
+
+    # -------------------------
+    # Stale sensor protection
+    # If scan or odom stops updating, brake.
+    # -------------------------
+    require_fresh_scan: true
+    require_fresh_odom: true
+    scan_timeout_sec: 0.30
+    odom_timeout_sec: 0.30
+    joy_timeout_sec: 0.75
+
+    # -------------------------
+    # Debug
+    # -------------------------
     debug_brake_mode: true
     debug_ttc: true
     debug_ttc_rate_sec: 0.5
 
+    # -------------------------
+    # Loop
+    # -------------------------
     publish_rate: 50.0
+    brake_publish_epsilon: 0.001

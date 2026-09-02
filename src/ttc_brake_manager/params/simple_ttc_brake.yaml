@@ -1,0 +1,70 @@
+# ============================================================
+# STREAMLINED SIMPLE TTC BRAKE CONFIG
+# ROS 2 Humble / F1TENTH
+#
+# Reverse speed limit has been removed.
+# Manual reverse speed now comes directly from /teleop.
+# ============================================================
+
+simple_ttc_brake: # Node name; must match Node("simple_ttc_brake") in Python.
+  ros__parameters: # ROS 2 parameters for this node.
+
+    # ============================================================
+    # TOPICS
+    # ============================================================
+
+    scan_topic: /scan # LiDAR topic used for TTC; usually /scan.
+
+    odom_topic: /odom # Odometry topic used for measured speed; usually /odom.
+
+    mux_cmd_topic: /ackermann_cmd # Ackermann mux output; used for debug and steering memory only.
+
+    manual_cmd_topic: /teleop # Pre-mux manual command; must go negative when reverse is pressed.
+
+    auto_cmd_topic: /drive # Pre-mux autonomous command; used only to detect forward command being held.
+
+    safety_drive_topic: /safety/drive # High-priority safety input to ackermann_mux.
+
+    motor_brake_topic: /commands/motor/brake # VESC brake-current topic.
+
+    # ============================================================
+    # ENABLE
+    # ============================================================
+
+    enabled_on_start: true # true = brake is active immediately when node starts; ideal: true.
+
+    # ============================================================
+    # MAIN SAFETY TUNING
+    # ============================================================
+
+    ttc_threshold: 0.70 # Brake if TTC drops below this; range 0.35-1.20 sec; ideal start 0.70.
+
+    front_clear_distance: 0.70 # Brake fully clears only when front is clear by this distance; range 0.45-1.20 m.
+
+    # ============================================================
+    # MOTOR BRAKE CURRENT
+    # ============================================================
+
+    use_motor_brake: true # true = use physical VESC brake current; false = only command speed 0.0.
+
+    motor_brake_value: 2.0 # Brake current magnitude; start 1.0-2.0; increase slowly only after stable.
+
+    motor_brake_sign: -1.0 # Your car tested working with -1.0; use 1.0 only if polarity changes.
+
+    # ============================================================
+    # DEBUG
+    # ============================================================
+
+    debug: true # true while tuning; false once stable.
+
+    # ============================================================
+    # STATUS TOPICS
+    # ============================================================
+
+    enable_topic: /brake/enable # Bool enable/disable topic.
+
+    active_topic: /brake/active # Bool brake-active status topic.
+
+    status_topic: /brake/status # String state: READY, BRAKING_TTC, BRAKING_STALE, ALLOWING_REVERSE.
+
+    min_ttc_topic: /brake/min_ttc # Current TTC in seconds; -1.0 means unavailable.
